@@ -1,11 +1,11 @@
-import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
-import { Router, ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Component, computed, OnDestroy, OnInit, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from 'primeng/button';
 import { ProgressSpinner } from 'primeng/progressspinner';
+import { Subscription } from 'rxjs';
+import { ServiceType } from '../../models/service-type';
 import { CustomerService } from '../../services/customer';
 import { ThemeService } from '../../services/theme';
-import { ServiceType } from '../../models/service-type';
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   [ServiceType.CARD_PROBLEMS]: 'Problemas com Cartão',
@@ -60,7 +60,7 @@ export class Queue implements OnInit, OnDestroy {
     this.queueSub = this.customerService.getQueuePosition(this.email()).subscribe({
       next: (data) => {
         this.position.set(data.position);
-        if (data.position === 0 || data.status === 'IN_SERVICE') {
+        if (data.position === 1 && data.status === 'IN_PROGRESS') {
           this.queueSub?.unsubscribe();
           this.router.navigate(['/chat'], {
             queryParams: {

@@ -1,11 +1,11 @@
-import { Component, signal, computed, OnInit } from '@angular/core';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Component, computed, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
+import { ServiceType } from '../../models/service-type';
 import { CustomerService } from '../../services/customer';
 import { ThemeService } from '../../services/theme';
-import { ServiceType } from '../../models/service-type';
 
 interface Message {
   text: string;
@@ -80,10 +80,7 @@ export class Chat implements OnInit {
     this.closing.set(true);
     this.customerService.finishSession(this.email()).subscribe({
       next: () => this.router.navigate(['/']),
-      error: () => {
-        this.closing.set(false);
-        this.router.navigate(['/']);
-      },
+      error: () => this.router.navigate(['/']),
     });
   }
 
