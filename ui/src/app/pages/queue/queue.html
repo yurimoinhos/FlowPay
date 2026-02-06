@@ -1,0 +1,42 @@
+<div class="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors flex flex-col">
+  <!-- Header -->
+  <header class="flex justify-between items-center px-6 py-4 bg-white dark:bg-gray-800 shadow-sm">
+    <div class="flex items-center gap-2">
+      <i class="pi pi-building text-green-600 text-2xl"></i>
+      <span class="text-2xl font-semibold dark:text-white">FlowPay</span>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="flex-1 flex items-center justify-center px-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center max-w-md w-full">
+      <p-progressSpinner
+        strokeWidth="4"
+        [style]="{ width: '80px', height: '80px' }"
+      />
+
+      <h1 class="text-2xl font-bold dark:text-white mt-6 mb-2">Aguarde...</h1>
+
+      @if (position() !== null) {
+        <p class="text-lg text-gray-600 dark:text-gray-300">
+          Você está na posição <span class="font-bold text-green-600 text-2xl">{{ position() }}</span> da fila
+        </p>
+      } @else {
+        <p class="text-lg text-gray-600 dark:text-gray-300">Conectando à fila...</p>
+      }
+
+      <p class="text-sm text-gray-400 mt-2">{{ serviceTypeLabel() }}</p>
+
+      <div class="mt-8">
+        <p-button
+          label="Cancelar"
+          icon="pi pi-times"
+          severity="danger"
+          [outlined]="true"
+          [loading]="cancelling()"
+          (onClick)="cancel()"
+        />
+      </div>
+    </div>
+  </main>
+</div>

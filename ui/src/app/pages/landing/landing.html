@@ -1,1 +1,46 @@
-<p>landing works!</p>
+<div class="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
+  <!-- Header -->
+  <header class="flex justify-between items-center px-6 py-4 bg-white dark:bg-gray-800 shadow-sm">
+    <div class="flex items-center gap-2">
+      <i class="pi pi-building text-green-600 text-2xl"></i>
+      <span class="text-2xl font-semibold dark:text-white">FlowPay</span>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-5xl mx-auto px-4 py-16">
+    <div class="text-center mb-16">
+      <h1 class="text-4xl font-bold dark:text-white mb-4">Bem-vindo ao FlowPay</h1>
+      <p class="text-lg text-gray-500 dark:text-gray-400">Como podemos ajudar você hoje?</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+      @for (service of services; track service.type) {
+        <app-service-card
+          [title]="service.title"
+          [description]="service.description"
+          [icon]="service.icon"
+          [iconBg]="service.iconBg"
+          (cardClick)="selectService(service.type)"
+        />
+      }
+    </div>
+
+    <div class="text-center">
+      <h2 class="text-2xl font-semibold dark:text-white mb-2">Precisa de ajuda?</h2>
+      <p class="text-gray-500 dark:text-gray-400">
+        Selecione o tipo de atendimento acima e você será conectado com um de nossos especialistas.
+      </p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-6 text-gray-400 text-sm">
+    <div class="flex items-center justify-center gap-2">
+      <i class="pi pi-building text-green-600"></i>
+      <span>FlowPay</span>
+    </div>
+  </footer>
+
+  <app-user-info-modal [(visible)]="showModal" [loading]="submitting()" (userSubmit)="onUserInfoSubmit($event)" />
+</div>

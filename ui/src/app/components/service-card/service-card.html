@@ -1,0 +1,9 @@
+<p-card (click)="cardClick.emit()" class="cursor-pointer block hover:shadow-lg transition-shadow">
+  <div class="flex flex-col items-center text-center gap-4 py-4">
+    <div [class]="iconBg() + ' w-20 h-20 rounded-full flex items-center justify-center'">
+      <i [class]="icon() + ' text-white text-3xl'"></i>
+    </div>
+    <h3 class="text-xl font-semibold">{{ title() }}</h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400">{{ description() }}</p>
+  </div>
+</p-card>

@@ -1,8 +1,11 @@
 package com.flowpay.api.controllers;
 
+import com.flowpay.api.entities.ServiceType;
 import com.flowpay.api.repositories.CustomerSessionRepository;
 import com.flowpay.api.requests.CustomerRequest;
+import com.flowpay.api.responses.InProgressSessionResponse;
 import com.flowpay.api.responses.QueuePositionResponse;
+import com.flowpay.api.responses.SessionMetricsResponse;
 import com.flowpay.api.services.CustomerSessionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -72,8 +75,54 @@ public class CustomerSessionController {
      * @return Mono<Void>
      */
     @PutMapping("/{email}")
-    public Mono<Void> finishCustomerSession(@PathVariable String email) {
-        return customerService.finishCustomerSession(email);
+    public Mono<ResponseEntity<Void>> finishCustomerSession(@PathVariable String email) {
+        return customerService.finishCustomerSession(email)
+        .thenReturn(ResponseEntity.ok().build());
+    }
+
+    /**
+     * Stream SSE com os atendimentos IN_PROGRESS de um tipo de serviço.
+     * Atualiza a cada segundo com a lista atual de sessoes em andamento.
+     *
+     * @param serviceType Tipo de serviço (ex: LOANS, CARDS)
+     * @return Flux SSE com sessoes em andamento
+     */
+    @GetMapping(value = "/in-progress/{serviceType}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<InProgressSessionResponse>> getInProgressByServiceType(
+            @PathVariable ServiceType serviceType) {
+        return customerService.streamInProgressSessions(serviceType)
+            .map(session -> ServerSentEvent.<InProgressSessionResponse>builder()
+                .event("in-progress-update")
+                .data(session)
+                .build())
+            .doOnSubscribe(sub -> log.info("Stream de IN_PROGRESS iniciado para {}", serviceType));
+    }
+
+    /**
+     * Stream SSE com métricas consolidadas dos atendimentos,
+     * atualizado a cada segundo. Emite apenas quando os dados mudam.
+     */
+    @GetMapping(value = "/metrics", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<SessionMetricsResponse>> getMetrics() {
+        return customerService.streamMetrics()
+            .map(metrics -> ServerSentEvent.<SessionMetricsResponse>builder()
+                .event("metrics-update")
+                .data(metrics)
+                .build())
+            .doOnSubscribe(sub -> log.info("Stream de métricas iniciado"));
+    }
+
+    /**
+     * Completa o atendimento de uma sessao IN_PROGRESS, alterando para COMPLETED.
+     * Utilizado pelo atendente a partir do stream de sessoes em andamento.
+     *
+     * @param sessionId ID da sessao
+     * @return Mono<Void>
+     */
+    @PutMapping("/sessions/{sessionId}/complete")
+    public Mono<ResponseEntity<Void>> completeSession(@PathVariable Long sessionId) {
+        return customerService.completeSession(sessionId)
+            .thenReturn(ResponseEntity.ok().<Void>build());
     }
 
     /**

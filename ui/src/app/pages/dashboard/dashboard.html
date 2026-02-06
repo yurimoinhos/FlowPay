@@ -1,0 +1,97 @@
+<div class="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
+  <!-- Header -->
+  <header class="flex justify-between items-center px-6 py-4 bg-white dark:bg-gray-800 shadow-sm">
+    <div class="flex items-center gap-2">
+      <i class="pi pi-building text-green-600 text-2xl"></i>
+      <span class="text-2xl font-semibold dark:text-white">FlowPay — Dashboard</span>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-8">
+    @if (metrics(); as m) {
+      <!-- Metric Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <p-card>
+          <div class="text-center">
+            <i class="pi pi-list text-3xl text-blue-500 mb-2"></i>
+            <div class="text-3xl font-bold dark:text-white">{{ m.totalSessions }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Total de Sessões</div>
+          </div>
+        </p-card>
+
+        <p-card>
+          <div class="text-center">
+            <i class="pi pi-clock text-3xl text-yellow-500 mb-2"></i>
+            <div class="text-3xl font-bold dark:text-white">{{ m.pendingCount }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Pendentes</div>
+          </div>
+        </p-card>
+
+        <p-card>
+          <div class="text-center">
+            <i class="pi pi-spin pi-spinner text-3xl text-blue-500 mb-2"></i>
+            <div class="text-3xl font-bold dark:text-white">{{ m.inProgressCount }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Em Andamento</div>
+          </div>
+        </p-card>
+
+        <p-card>
+          <div class="text-center">
+            <i class="pi pi-check-circle text-3xl text-green-500 mb-2"></i>
+            <div class="text-3xl font-bold dark:text-white">{{ m.completedCount }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Concluídas</div>
+          </div>
+        </p-card>
+      </div>
+
+      <!-- Secondary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+        <p-card>
+          <div class="text-center">
+            <i class="pi pi-times-circle text-3xl text-red-500 mb-2"></i>
+            <div class="text-3xl font-bold dark:text-white">{{ m.canceledCount }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Canceladas</div>
+          </div>
+        </p-card>
+
+        <p-card>
+          <div class="text-center">
+            <i class="pi pi-users text-3xl text-purple-500 mb-2"></i>
+            <div class="text-3xl font-bold dark:text-white">{{ m.averageSessionsPerCustomer.toFixed(1) }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Média por Cliente</div>
+          </div>
+        </p-card>
+
+        <p-card>
+          <div class="text-center">
+            <i class="pi pi-stopwatch text-3xl text-orange-500 mb-2"></i>
+            <div class="text-3xl font-bold dark:text-white">{{ formatDuration(m.averageServiceDurationSeconds) }}</div>
+            <div class="text-sm text-gray-500 dark:text-gray-400">Duração Média</div>
+          </div>
+        </p-card>
+      </div>
+
+      <!-- Charts -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        @if (doughnutData(); as dData) {
+          <p-card header="Distribuição por Status">
+            <p-chart type="doughnut" [data]="dData" [options]="doughnutOptions()" height="300px" />
+          </p-card>
+        }
+
+        @if (barData(); as bData) {
+          <p-card header="Taxas de Conclusão e Cancelamento">
+            <p-chart type="bar" [data]="bData" [options]="barOptions()" height="300px" />
+          </p-card>
+        }
+      </div>
+    } @else {
+      <div class="flex items-center justify-center py-24">
+        <div class="text-center text-gray-400">
+          <i class="pi pi-spin pi-spinner text-4xl mb-4 block"></i>
+          <p>Conectando ao stream de métricas...</p>
+        </div>
+      </div>
+    }
+  </main>
+</div>

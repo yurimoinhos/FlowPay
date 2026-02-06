@@ -7,11 +7,15 @@ import com.flowpay.api.entities.ServiceType;
 import com.flowpay.api.repositories.CustomerRepository;
 import com.flowpay.api.repositories.CustomerSessionRepository;
 import com.flowpay.api.requests.CustomerRequest;
+import com.flowpay.api.responses.InProgressSessionResponse;
 import com.flowpay.api.responses.QueuePositionResponse;
+import com.flowpay.api.responses.SessionMetricsResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -115,7 +119,7 @@ public class CustomerSessionService {
                     .switchIfEmpty(Mono.error(new IllegalArgumentException("Nenhuma sessao ativa")))
                     .flatMap(session -> {
                         if (session.getFinishedAt() != null) {
-                            return Mono.error(new IllegalArgumentException("sessao já finalizada"));
+                            return Mono.error(new IllegalArgumentException("Sessao já finalizada"));
                         }
                         var currentStatus = session.getStatus();
 
@@ -126,6 +130,79 @@ public class CustomerSessionService {
                             .then(tryPromoteNextInQueue(serviceType));
                     });
             });
+    }
+
+    /**
+     * Completa o atendimento de uma sessao IN_PROGRESS, alterando o status para COMPLETED,
+     * registrando o horário de finalizaçao e promovendo o próximo da fila.
+     *
+     * @param sessionId ID da sessao
+     * @return Mono<Void>
+     */
+    public Mono<Void> completeSession(Long sessionId) {
+        return customerSessionRepository.findById(sessionId)
+            .switchIfEmpty(Mono.error(new IllegalArgumentException("Sessao nao encontrada")))
+            .flatMap(session -> {
+                if (session.getStatus() != CustomerSessionStatus.IN_PROGRESS) {
+                    return Mono.error(new IllegalArgumentException(
+                        "Apenas sessoes IN_PROGRESS podem ser completadas. Status atual: " + session.getStatus()));
+                }
+                session.setStatus(CustomerSessionStatus.COMPLETED);
+                session.setFinishedAt(OffsetDateTime.now());
+                ServiceType serviceType = session.getServiceType();
+                log.info("Completando sessao {} do serviço {}", sessionId, serviceType);
+                return customerSessionRepository.save(session)
+                    .then(tryPromoteNextInQueue(serviceType));
+            });
+    }
+
+    /**
+     * Retorna métricas consolidadas dos atendimentos:
+     * média de sessoes por cliente, contagem por status,
+     * taxa de conclusao e desistencia e tempo médio de atendimento.
+     */
+    private Mono<SessionMetricsResponse> getMetrics() {
+        Mono<Double> avgPerCustomer = customerSessionRepository.averageSessionsPerCustomer()
+            .defaultIfEmpty(0.0);
+        Mono<Double> avgDuration = customerSessionRepository.averageServiceDurationSeconds()
+            .defaultIfEmpty(0.0);
+        Mono<Long> pending = customerSessionRepository.countByStatus("PENDING")
+            .defaultIfEmpty(0L);
+        Mono<Long> inProgress = customerSessionRepository.countByStatus("IN_PROGRESS")
+            .defaultIfEmpty(0L);
+        Mono<Long> completed = customerSessionRepository.countByStatus("COMPLETED")
+            .defaultIfEmpty(0L);
+        Mono<Long> canceled = customerSessionRepository.countByStatus("CANCELED")
+            .defaultIfEmpty(0L);
+
+        return Mono.zip(avgPerCustomer, avgDuration, pending, inProgress, completed, canceled)
+            .map(tuple -> {
+                double avg = tuple.getT1();
+                double duration = tuple.getT2();
+                long p = tuple.getT3();
+                long ip = tuple.getT4();
+                long c = tuple.getT5();
+                long ca = tuple.getT6();
+                long total = p + ip + c + ca;
+                long finalized = c + ca;
+                double completionRate = finalized > 0 ? (double) c / finalized * 100 : 0.0;
+                double cancellationRate = finalized > 0 ? (double) ca / finalized * 100 : 0.0;
+
+                return new SessionMetricsResponse(
+                    avg, duration, p, ip, c, ca, total, completionRate, cancellationRate
+                );
+            });
+    }
+
+    /**
+     * Stream SSE de métricas consolidadas, atualizado a cada segundo.
+     * Emite apenas quando os dados mudam.
+     */
+    public Flux<SessionMetricsResponse> streamMetrics() {
+        log.info("Iniciando stream de métricas");
+        return Flux.interval(Duration.ZERO, Duration.ofSeconds(1))
+            .flatMap(tick -> getMetrics())
+            .distinctUntilChanged();
     }
 
     /**
@@ -159,11 +236,47 @@ public class CustomerSessionService {
                     .flatMap(session -> {
                         session.setStatus(CustomerSessionStatus.IN_PROGRESS);
                         return customerSessionRepository.save(session)
-                            .doOnNext(s -> log.info("sessao {} promovida para IN_PROGRESS", s.getId()));
+                            .doOnNext(s -> log.info("sessao {} promovida para IN_PROGRESS", s.getId()))
+                            .retryWhen(Retry.max(3)
+                                .filter(OptimisticLockingFailureException.class::isInstance)
+                                .doBeforeRetry(signal -> log.warn("Retry promoçao por conflito de versao: tentativa {}", signal.totalRetries() + 1)))
+                            .onErrorResume(OptimisticLockingFailureException.class, e -> {
+                                log.warn("Sessao {} já foi promovida por outra thread, ignorando", session.getId());
+                                return Mono.empty();
+                            });
                     })
                     .then();
             })
             .then();
+    }
+
+    /**
+     * Retorna um stream SSE com as sessoes IN_PROGRESS de um tipo de serviço,
+     * atualizando a cada segundo.
+     *
+     * @param serviceType Tipo de serviço
+     * @return Flux com as sessoes em andamento
+     */
+    public Flux<InProgressSessionResponse> streamInProgressSessions(ServiceType serviceType) {
+        log.info("Iniciando stream de sessoes IN_PROGRESS para {}", serviceType);
+
+        return Flux.interval(Duration.ZERO, Duration.ofSeconds(1))
+            .flatMap(tick ->
+                customerSessionRepository.findAllInProgressByServiceType(serviceType.name())
+                    .flatMap(session ->
+                        customerRepository.findById(session.getCustomerId())
+                            .map(customer -> new InProgressSessionResponse(
+                                session.getId(),
+                                customer.getName(),
+                                customer.getEmail(),
+                                session.getServiceType(),
+                                session.getStartedAt()
+                            ))
+                    )
+                    .collectList()
+            )
+            .distinctUntilChanged()
+            .flatMapIterable(list -> list);
     }
 
     /**
@@ -220,12 +333,15 @@ public class CustomerSessionService {
                 email, update.getPosition(), update.getStatus()))
             .timeout(Duration.ofHours(1))
             .doOnCancel(() -> {
-                log.info("Stream cancelado para {}, finalizando sessao...", email);
-                finishCustomerSession(email).ignoreElement();
-            })
-            .doOnComplete(() -> {
-                log.info("Stream completado para {}, finalizando sessao...", email);
-                finishCustomerSession(email).ignoreElement();
+                log.info("Stream cancelado para {}, verificando sessao...", email);
+                customerSessionRepository.findByActiveServicesByCustomerEmail(email)
+                    .filter(session -> session.getStatus() == CustomerSessionStatus.PENDING)
+                    .flatMap(session -> {
+                        log.info("Sessao PENDING cancelada por desconexao do cliente {}", email);
+                        return customerSessionRepository.setFinishedAtToNow(email, CustomerSessionStatus.CANCELED)
+                            .then(tryPromoteNextInQueue(session.getServiceType()));
+                    })
+                    .subscribe();
             });
         }
 

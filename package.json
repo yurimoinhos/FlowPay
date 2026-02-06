@@ -1,0 +1,8 @@
+{
+	"scripts": {
+		"start": "concurrently \"npm run start --prefix ui\" \"./api/mvnw -f api/pom.xml spring-boot:run\""
+	},
+	"devDependencies": {
+		"concurrently": "^9.2.1"
+	}
+}

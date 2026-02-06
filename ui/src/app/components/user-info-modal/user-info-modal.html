@@ -1,0 +1,31 @@
+<p-dialog header="Precisamos de algumas informações" [(visible)]="visible" [modal]="true" [style]="{ width: '28rem' }">
+  <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-2">
+      <label class="font-medium">Nome completo <span class="text-red-500">*</span></label>
+      <input pInputText [(ngModel)]="name" placeholder="Teste" />
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label class="font-medium">E-mail <span class="text-red-500">*</span></label>
+      <input pInputText [(ngModel)]="email" type="email" placeholder="teste@email.com" />
+    </div>
+
+    <div class="flex items-center gap-2 text-sm text-gray-500">
+      <i class="pi pi-info-circle"></i>
+      <span>Suas informações serão usadas apenas para este atendimento.</span>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-2">
+      <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="visible.set(false)" />
+      <p-button
+        label="Continuar"
+        icon="pi pi-arrow-right"
+        iconPos="right"
+        type="button"
+        [loading]="loading()"
+        [disabled]="!name || !email"
+        (onClick)="onSubmit()"
+      />
+    </div>
+  </div>
+</p-dialog>

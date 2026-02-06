@@ -1,0 +1,73 @@
+<div class="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
+  <!-- Header -->
+  <header class="flex justify-between items-center px-6 py-4 bg-white dark:bg-gray-800 shadow-sm">
+    <div class="flex items-center gap-2">
+      <i class="pi pi-building text-green-600 text-2xl"></i>
+      <span class="text-2xl font-semibold dark:text-white">FlowPay — Atendente</span>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Info -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold dark:text-white">{{ serviceTypeLabel() }}</h1>
+          <p class="text-gray-500 dark:text-gray-400 mt-1">Gerencie os atendimentos desta fila</p>
+        </div>
+        <div class="text-center px-6 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div class="text-3xl font-bold text-blue-600">{{ sessionCount() }}</div>
+          <div class="text-sm text-gray-500">Em atendimento</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sessions -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-xl font-semibold dark:text-white">Sessões em Andamento</h2>
+      </div>
+
+      @for (session of sessions(); track session.sessionId) {
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 last:border-0">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <p-avatar
+                [label]="session.customerName.charAt(0)"
+                shape="circle"
+                size="large"
+                styleClass="bg-green-600 text-white"
+              />
+              <div>
+                <h3 class="text-lg font-medium dark:text-white">{{ session.customerName }}</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ session.customerEmail }}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <div class="text-right">
+                <div class="text-xs text-gray-400 dark:text-gray-500">Tempo em atendimento</div>
+                <div class="font-semibold dark:text-white">{{ formatTime(session.startedAt) }}</div>
+              </div>
+
+              <p-tag value="Em atendimento" severity="info" />
+
+              <p-button
+                label="Finalizar Atendimento"
+                icon="pi pi-check"
+                severity="success"
+                size="small"
+                (onClick)="finishCustomer(session)"
+              />
+            </div>
+          </div>
+        </div>
+      } @empty {
+        <div class="px-6 py-12 text-center text-gray-400">
+          <i class="pi pi-users text-4xl mb-4 block"></i>
+          <p>Nenhum cliente em atendimento</p>
+        </div>
+      }
+    </div>
+  </main>
+</div>

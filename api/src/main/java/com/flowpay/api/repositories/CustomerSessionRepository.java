@@ -87,8 +87,9 @@ public interface CustomerSessionRepository extends ReactiveCrudRepository<Custom
 
     @Query("""
             UPDATE customer_sessions
-            SET finished_at = CURRENT_TIMESTAMP, status = :status
+            SET finished_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC', status = :status
             WHERE customer_id = (SELECT id FROM customers WHERE email = :email)
+            AND finished_at IS NULL
     """)
     Mono<Void> setFinishedAtToNow(String email, CustomerSessionStatus status);
 
@@ -149,6 +150,39 @@ public interface CustomerSessionRepository extends ReactiveCrudRepository<Custom
     ORDER BY started_at
     """)
     Flux<CustomerSession> findAllActiveByServiceType(String serviceType);
+
+    /**
+     * Retorna todas as sessoes IN_PROGRESS de um tipo de serviço.
+     *
+     * @param serviceType Tipo de serviço
+     * @return Lista de sessoes em andamento
+     */
+    @Query("""
+    SELECT * FROM customer_sessions
+    WHERE finished_at IS NULL
+    AND status = 'IN_PROGRESS'
+    AND service_type = :serviceType
+    ORDER BY started_at
+    """)
+    Flux<CustomerSession> findAllInProgressByServiceType(String serviceType);
+
+    /**
+     * Média de sessoes por cliente.
+     */
+    @Query("SELECT CAST(COUNT(*) AS DOUBLE PRECISION) / NULLIF(COUNT(DISTINCT customer_id), 0) FROM customer_sessions")
+    Mono<Double> averageSessionsPerCustomer();
+
+    /**
+     * Conta sessoes por status.
+     */
+    @Query("SELECT COUNT(*) FROM customer_sessions WHERE status = :status")
+    Mono<Long> countByStatus(String status);
+
+    /**
+     * Tempo médio de atendimento (em segundos) das sessoes finalizadas com COMPLETED.
+     */
+    @Query("SELECT CAST(AVG(EXTRACT(EPOCH FROM (finished_at - started_at))) AS DOUBLE PRECISION) FROM customer_sessions WHERE status = 'COMPLETED' AND finished_at IS NOT NULL")
+    Mono<Double> averageServiceDurationSeconds();
 
     /**
      * Encontra a sessao ativa (sem finished_at) de um cliente pelo email.
